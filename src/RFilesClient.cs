@@ -1,7 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace RFiles.NET;
@@ -133,7 +132,6 @@ public class RFilesClient
 
     private async Task<HttpResponseMessage> request(HttpRequestMessage reqMessage)
     {
-        //Console.WriteLine(reqMessage.RequestUri);
         reqMessage.Headers.Add("X-Client-Secret", ClientSecret);
 
         var resMessage = await _httpClient.SendAsync(reqMessage);
