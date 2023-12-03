@@ -23,7 +23,7 @@ public class HeadCommand : CommandBase
         }
         else
         {
-            RFilesUtil.WriteMetadata(metadata);
+            ConsoleWriter.WriteLine(metadata);
         }
 
         return 0;

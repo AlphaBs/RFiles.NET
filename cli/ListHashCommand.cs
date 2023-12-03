@@ -10,9 +10,9 @@ public class ListHashCommand : CommandBase
         Console.WriteLine($"List all hashes from {Host}");
 
         var client = CreateClient();
-        var objects = client.GetAllHashes();
+        var objects = await client.GetAllHashes();
         int count = 0;
-        await foreach (var hash in objects)
+        foreach (var hash in objects)
         {
             Console.WriteLine(hash);
             count++;

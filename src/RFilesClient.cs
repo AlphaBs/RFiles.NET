@@ -9,95 +9,101 @@ public class RFilesClient
 {
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
-    
+
     public RFilesClient(
         string host,
         HttpClient httpClient,
         JsonSerializerOptions jsonOptions) =>
-        (Host, _httpClient, _jsonOptions) = 
+        (Host, _httpClient, _jsonOptions) =
         (host, httpClient, jsonOptions);
 
     public string Host { get; }
     public string? ClientSecret { get; set; }
 
-    public async IAsyncEnumerable<RFilesObjectMetadata> GetAllObjects()
+    public async Task<IEnumerable<RFilesObjectMetadata>> GetAllObjects()
     {
-        var res = await request(new HttpRequestMessage
+        using var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Get,
-            RequestUri = new Uri($"{Host}/objects?return=object")
+            RequestUri = new Uri($"{Host}/md5?return=object")
         });
-        var stream = await res.Content.ReadAsStreamAsync();
-        var objects = JsonSerializer.DeserializeAsyncEnumerable<RFilesObjectMetadata>(stream, _jsonOptions);
-        await foreach (var obj in objects)
-        {
-            if (obj != null)
-                yield return obj;
-        }
+        using var stream = await res.Content.ReadAsStreamAsync();
+        var objects = await JsonSerializer.DeserializeAsync<IEnumerable<RFilesObjectMetadata>>(stream, _jsonOptions);
+        return objects.Where(obj => obj != null);
     }
 
-    public async IAsyncEnumerable<string> GetAllHashes()
+    public async Task<IEnumerable<string>> GetAllHashes()
     {
-        var res = await request(new HttpRequestMessage
+        using var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Get,
-            RequestUri = new Uri($"{Host}/objects?return=md5")
+            RequestUri = new Uri($"{Host}/md5?return=hash")
         });
-        var stream = await res.Content.ReadAsStreamAsync();
-        var hashes = JsonSerializer.DeserializeAsyncEnumerable<string>(stream, _jsonOptions);
-        await foreach (var hash in hashes)
-        {
-            if (!string.IsNullOrEmpty(hash))
-                yield return hash;
-        }
+        using var stream = await res.Content.ReadAsStreamAsync();
+        var hashes = await JsonSerializer.DeserializeAsync<IEnumerable<string>>(stream, _jsonOptions);
+        return hashes.Where(hash => !string.IsNullOrEmpty(hash));
     }
 
-    public async IAsyncEnumerable<RFilesObjectMetadata> Query(IEnumerable<string> hashes)
+    public async Task<IEnumerable<RFilesObjectMetadata>> Query(IEnumerable<string> hashes)
     {
-        var reqBytes = JsonSerializer.SerializeToUtf8Bytes(
-            new { hashes }, 
-            _jsonOptions);
-        using var reqStream = new MemoryStream(reqBytes);
-        var reqContent = new StreamContent(reqStream);
-        reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-        var res = await request(new HttpRequestMessage
+        using var reqContent = serializeHashQueries(hashes);
+        using var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Post,
-            RequestUri = new Uri($"{Host}/objects/query"),
+            RequestUri = new Uri($"{Host}/query"),
             Content = reqContent
         });
-        var resStream = await res.Content.ReadAsStreamAsync();
+        using var resStream = await res.Content.ReadAsStreamAsync();
+        var objects = await JsonSerializer.DeserializeAsync<IEnumerable<RFilesObjectMetadata>>(resStream, _jsonOptions);
+        return objects.Where(obj => obj != null);
+    }
 
-        var objects = JsonSerializer.DeserializeAsyncEnumerable<RFilesObjectMetadata>(resStream, _jsonOptions);
-        await foreach (var obj in objects)
+    public async Task<RFilesSyncResult> Sync(IEnumerable<string> hashes)
+    {
+        using var reqContent = serializeHashQueries(hashes);
+        using var res = await request(new HttpRequestMessage
         {
-            if (obj != null)
-                yield return obj;
-        }
+            Method = HttpMethod.Post,
+            RequestUri = new Uri($"{Host}/sync"),
+            Content = reqContent
+        });
+        using var resStream = await res.Content.ReadAsStreamAsync();
+        var resJson = await JsonSerializer.DeserializeAsync<RFilesSyncResult>(resStream);
+        return resJson ?? throw new RFilesException(200, "bad_response");
+    }
+
+    private HttpContent serializeHashQueries(IEnumerable<string> hashes)
+    {
+        var reqBytes = JsonSerializer.SerializeToUtf8Bytes(
+            new { md5 = hashes },
+            _jsonOptions);
+        var reqStream = new MemoryStream(reqBytes);
+        var reqContent = new StreamContent(reqStream);
+        reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+        return reqContent;
     }
 
     public async Task<RFilesObjectMetadata?> Head(string hash)
     {
-        var res = await request(new HttpRequestMessage
+        using var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Head,
-            RequestUri = new Uri($"{Host}/objects/{hash}")
+            RequestUri = new Uri($"{Host}/md5/{hash}")
         });
         return parseMetadataFromHeaders(hash, res.Content.Headers);
     }
 
     public async Task<RFilesObject> Download(string hash)
     {
-        var res = await request(new HttpRequestMessage
+        using var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Get,
-            RequestUri = new Uri($"{Host}/objects/{hash}")
+            RequestUri = new Uri($"{Host}/md5/{hash}")
         });
 
         var metadata = parseMetadataFromHeaders(hash, res.Content.Headers);
-        var stream = await res.Content.ReadAsStreamAsync();
-        return new RFilesObject(stream, metadata);
+        var stream = await res.Content.ReadAsStreamAsync(); // do not dispose stream in this time
+        return new RFilesObject(stream, metadata);          // RFilesObject would dispose the stream
     }
 
     public async Task Delete(string hash)
@@ -105,34 +111,41 @@ public class RFilesClient
         await request(new HttpRequestMessage
         {
             Method = HttpMethod.Delete,
-            RequestUri = new Uri($"{Host}/objects/{hash}"),
+            RequestUri = new Uri($"{Host}/md5/{hash}"),
         });
     }
 
-    public async Task Upload(string path, string existMode = "")
+    public async Task<RFilesUploadRequest> Upload(string path, string existMode = "")
     {
         if (!File.Exists(path))
             throw new FileNotFoundException(path);
-        
+
         using var stream = File.OpenRead(path);
         using var hasher = MD5.Create();
         var hashBytes = hasher.ComputeHash(stream);
         var hashStr = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
 
         stream.Position = 0;
-        await Upload(stream, hashStr, existMode);
+        return await Upload(stream, hashStr, existMode);
     }
 
-    public async Task Upload(Stream stream, string hash, string existMode = "")
+    public async Task<RFilesUploadRequest> Upload(Stream stream, string hash, string existMode = "")
     {
         var reqContent = new StreamContent(stream);
-        var res = await _httpClient.PutAsync($"{Host}/objects/{hash}?exists={existMode}", reqContent);
-        res.EnsureSuccessStatusCode();
+        var res = await request(new HttpRequestMessage
+        {
+            Method = HttpMethod.Post,
+            RequestUri = new Uri($"{Host}/md5/{hash}?exists={existMode}"),
+            Content = reqContent
+        });
+        using var resStream = await res.Content.ReadAsStreamAsync();
+        return await JsonSerializer.DeserializeAsync<RFilesUploadRequest>(resStream, _jsonOptions) ??
+            throw new RFilesException((int)res.StatusCode, "invalid_response");
     }
 
     private async Task<HttpResponseMessage> request(HttpRequestMessage reqMessage)
     {
-        reqMessage.Headers.Add("X-Client-Secret", ClientSecret);
+        reqMessage.Headers.Add("x-client-secret", ClientSecret);
 
         var resMessage = await _httpClient.SendAsync(reqMessage);
         if (!resMessage.IsSuccessStatusCode)

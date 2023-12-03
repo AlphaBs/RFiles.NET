@@ -20,13 +20,13 @@ public class QueryCommand : CommandBase
         Console.WriteLine($"Query {hashesArr.Length} hashes");
 
         var client = CreateClient();
-        var objects = client.Query(hashesArr);
+        var objects = await client.Query(hashesArr);
         int count = 0;
-        await foreach (var robj in objects)
+        foreach (var robj in objects)
         {
             count++;
             Console.WriteLine("#" + count);
-            RFilesUtil.WriteMetadata(robj);
+            ConsoleWriter.WriteLine(robj);
         }
 
         Console.WriteLine($"Total {count} objects");

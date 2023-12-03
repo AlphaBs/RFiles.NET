@@ -10,13 +10,13 @@ public class ListCommand : CommandBase
         Console.WriteLine($"List all objects from {Host}");
 
         var client = CreateClient();
-        var objects = client.GetAllObjects();
+        var objects = await client.GetAllObjects();
         int count = 0;
-        await foreach (var robj in objects)
+        foreach (var robj in objects)
         {
             count++;
             Console.WriteLine("#" + count);
-            RFilesUtil.WriteMetadata(robj);
+            ConsoleWriter.WriteLine(robj);
         }
         Console.WriteLine($"Total {count} objects");
         return 0;

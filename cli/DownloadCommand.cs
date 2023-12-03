@@ -20,9 +20,7 @@ public class DownloadCommand : CommandBase
 
         var client = CreateClient();
         using var robj = await client.Download(Hash);
-        Console.WriteLine($"Hash: {robj.Metadata.Hash}");
-        Console.WriteLine($"Size: {robj.Metadata.Size}");
-        Console.WriteLine($"Uploaded: {robj.Metadata.Uploaded}");
+        ConsoleWriter.WriteLine(robj.Metadata);
 
         var path = FilePath;
         if (string.IsNullOrEmpty(path))
