@@ -83,12 +83,17 @@ public class RFilesClient
         return reqContent;
     }
 
+    public Uri GetObjectUri(string hash)
+    {
+        return new Uri($"{Host}/md5/{hash}");
+    }
+
     public async Task<RFilesObjectMetadata?> Head(string hash)
     {
         using var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Head,
-            RequestUri = new Uri($"{Host}/md5/{hash}")
+            RequestUri = GetObjectUri(hash)
         });
         return parseMetadataFromHeaders(hash, res.Content.Headers);
     }
@@ -98,7 +103,7 @@ public class RFilesClient
         using var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Get,
-            RequestUri = new Uri($"{Host}/md5/{hash}")
+            RequestUri = GetObjectUri(hash)
         });
 
         var metadata = parseMetadataFromHeaders(hash, res.Content.Headers);
@@ -111,7 +116,7 @@ public class RFilesClient
         await request(new HttpRequestMessage
         {
             Method = HttpMethod.Delete,
-            RequestUri = new Uri($"{Host}/md5/{hash}"),
+            RequestUri = GetObjectUri(hash)
         });
     }
 
@@ -135,7 +140,7 @@ public class RFilesClient
         var res = await request(new HttpRequestMessage
         {
             Method = HttpMethod.Post,
-            RequestUri = new Uri($"{Host}/md5/{hash}?exists={existMode}"),
+            RequestUri = new Uri($"{GetObjectUri(hash)}?exists={existMode}"),
             Content = reqContent
         });
         using var resStream = await res.Content.ReadAsStreamAsync();
