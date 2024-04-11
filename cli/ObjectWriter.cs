@@ -21,6 +21,7 @@ public class ObjectWriter
         }
         else if (obj is RFilesUploadRequest uploadRequest)
         {
+            Output.WriteLine($"Hash: {uploadRequest.Hash}");
             Output.WriteLine($"Method: {uploadRequest.Method}");
             Output.WriteLine($"Url: {uploadRequest.Url}");
             foreach (var kv in uploadRequest.Headers)

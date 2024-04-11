@@ -6,10 +6,14 @@ public class RFilesUploadRequest
 {
     [JsonConstructor]
     public RFilesUploadRequest(
+        string hash,
         string method, 
         string url,
-        Dictionary<string, string> headers) =>
-        (Method, Url, Headers) = (method, url, headers);
+        IReadOnlyDictionary<string, string> headers) =>
+        (Hash, Method, Url, Headers) = (hash, method, url, headers);
+
+    [JsonPropertyName("md5")]
+    public string Hash { get; }
 
     [JsonPropertyName("method")]
     public string Method { get; }
@@ -18,7 +22,7 @@ public class RFilesUploadRequest
     public string Url { get; }
 
     [JsonPropertyName("headers")]
-    public Dictionary<string, string> Headers { get; }
+    public IReadOnlyDictionary<string, string> Headers { get; }
 
     public HttpRequestMessage ToHttpRequestMessage(Stream uploadStream)
     {
