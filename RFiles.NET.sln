@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RFilesCLI", "cli\RFilesCLI.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RFiles.NET", "src\RFiles.NET.csproj", "{8557083D-624B-4639-9E5B-1971CC781B73}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RFiles.NET.Tests", "tests\RFiles.NET.Tests.csproj", "{8F34935E-4385-4FE8-8036-ADA02F43D6BE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{8557083D-624B-4639-9E5B-1971CC781B73}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8557083D-624B-4639-9E5B-1971CC781B73}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8557083D-624B-4639-9E5B-1971CC781B73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F34935E-4385-4FE8-8036-ADA02F43D6BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F34935E-4385-4FE8-8036-ADA02F43D6BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F34935E-4385-4FE8-8036-ADA02F43D6BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F34935E-4385-4FE8-8036-ADA02F43D6BE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

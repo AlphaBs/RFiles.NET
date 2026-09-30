@@ -100,15 +100,23 @@ public class RFilesClient
 
     public async Task<RFilesObject> Download(string hash)
     {
-        using var res = await request(new HttpRequestMessage
+        using var req = new HttpRequestMessage
         {
             Method = HttpMethod.Get,
             RequestUri = GetObjectUri(hash)
-        });
-
-        var metadata = parseMetadataFromHeaders(hash, res.Content.Headers);
-        var stream = await res.Content.ReadAsStreamAsync(); // do not dispose stream in this time
-        return new RFilesObject(stream, metadata);          // RFilesObject would dispose the stream
+        };
+        var res = await request(req, HttpCompletionOption.ResponseHeadersRead);
+        try
+        {
+            var metadata = parseMetadataFromHeaders(hash, res.Content.Headers);
+            var stream = await res.Content.ReadAsStreamAsync();
+            return new RFilesObject(stream, metadata, res);
+        }
+        catch
+        {
+            res.Dispose();
+            throw;
+        }
     }
 
     public async Task Delete(string hash)
@@ -148,13 +156,24 @@ public class RFilesClient
             throw new RFilesException((int)res.StatusCode, "invalid_response");
     }
 
-    private async Task<HttpResponseMessage> request(HttpRequestMessage reqMessage)
+    private async Task<HttpResponseMessage> request(
+        HttpRequestMessage reqMessage,
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead)
     {
         reqMessage.Headers.Add("x-client-secret", ClientSecret);
 
-        var resMessage = await _httpClient.SendAsync(reqMessage);
+        var resMessage = await _httpClient.SendAsync(reqMessage, completionOption);
         if (!resMessage.IsSuccessStatusCode)
-            throw await createException(resMessage);
+        {
+            try
+            {
+                throw await createException(resMessage);
+            }
+            finally
+            {
+                resMessage.Dispose();
+            }
+        }
 
         return resMessage;
     }
